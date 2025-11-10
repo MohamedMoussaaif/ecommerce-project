@@ -54,6 +54,6 @@ public class User {
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "cart_id")
-    private Cart cart = new Cart();
+    private Cart cart;
 
 }

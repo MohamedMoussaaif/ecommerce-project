@@ -1,7 +1,9 @@
 package com.ecommerce.seeder;
 
+import com.ecommerce.entity.Category;
 import com.ecommerce.entity.Permission;
 import com.ecommerce.entity.Role;
+import com.ecommerce.service.CategoryService;
 import com.ecommerce.service.PermissionService;
 import com.ecommerce.service.RoleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,14 +17,13 @@ import java.util.List;
 import java.util.Set;
 
 @Configuration
-public class RolesAndPermissionsSeeder {
-
-    @Autowired
-    private PermissionService permissionService;
+public class ApplicationSeeder {
 
     @Bean
-    public CommandLineRunner commandLineRunner(ApplicationContext ctx, PermissionService permissionService, RoleService roleService) {
+    public CommandLineRunner commandLineRunner(ApplicationContext ctx, PermissionService permissionService, RoleService roleService, CategoryService categoryService) {
         return args -> {
+
+            //Permissions seeder
 
             Set<Permission> adminPer = new HashSet<>();
             Set<Permission> customerPer = new HashSet<>();
@@ -64,7 +65,9 @@ public class RolesAndPermissionsSeeder {
                 }
             }
 
-            Role role1 = new Role();
+            //Roles Seeder
+
+            /*Role role1 = new Role();
             role1.setRoleName("ROLE_ADMIN");
             role1.setPermissions(adminPer);
             Role role2 = new Role();
@@ -72,8 +75,27 @@ public class RolesAndPermissionsSeeder {
             role2.setPermissions(customerPer);
 
             roleService.addRole(role1);
-            roleService.addRole(role2);
+            roleService.addRole(role2);*/
 
+
+            //Category Seeder
+
+            List<String> categories = List.of(
+                    "Electronics",
+                    "Home goods",
+                    "Health care",
+                    "Women's fashion",
+                    "Men's fashion"
+            );
+
+            for(String c : categories){
+                Category cat = categoryService.findByName(c);
+                if(cat == null){
+                    Category category = new Category();
+                    category.setName(c);
+                    categoryService.addCategory(category);
+                }
+            }
         };
     }
 }
