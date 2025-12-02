@@ -1,12 +1,23 @@
 package com.ecommerce.service;
 
+import com.ecommerce.dto.userDTO.LoginRequestDTO;
+import com.ecommerce.dto.userDTO.LoginResponseDTO;
+import com.ecommerce.dto.userDTO.RequestUser;
 import com.ecommerce.entity.Cart;
 import com.ecommerce.entity.Role;
 import com.ecommerce.entity.User;
 import com.ecommerce.entity.sec.CustomUserDetails;
+import com.ecommerce.exception.ExistedUserException;
+import com.ecommerce.exception.UserNotFoundException;
+import com.ecommerce.mapper.UserMapper;
 import com.ecommerce.repository.UserRepository;
 import com.ecommerce.service.sec.JWTService;
+import com.ecommerce.utility.ApiResponse;
+import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.RequestEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,75 +35,103 @@ import java.util.Set;
 
 @Service
 @Transactional
-
 public class UserService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-    @Autowired
-    private CartService cartService;
-    @Autowired
-    private JWTService jwtService;
-    @Autowired
-    private RoleService roleService;
+    private final AuthenticationManager authenticationManager;
+    private final CartService cartService;
+    private final JWTService jwtService;
+    private final RoleService roleService;
+    private final UserMapper userMapper;
+
+    public UserService(UserRepository userRepository,
+                       AuthenticationManager authenticationManager,
+                       CartService cartService,
+                       JWTService jwtService,
+                       RoleService roleService,
+                       UserMapper userMapper
+                       ) {
+        this.userRepository = userRepository;
+        this.authenticationManager = authenticationManager;
+        this.cartService = cartService;
+        this.jwtService = jwtService;
+        this.roleService = roleService;
+        this.userMapper = userMapper;
+
+    }
 
     private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
-    public User addUser(User user) {
+    public ResponseEntity<ApiResponse> addUser(RequestUser requestUser) {
+        User user = userMapper.toUser(requestUser);
+        if(userRepository.findByUsername(requestUser.getUsername()).isPresent()){
+            throw new ExistedUserException("Username already exists : " + requestUser.getUsername());
+        }
+        if(userRepository.findByEmail(requestUser.getEmail()).isPresent()){
+            throw new ExistedUserException("Email already exists : " + requestUser.getEmail());
+        }
         user.setPassword(encoder.encode(user.getPassword()));
         Cart cart = new Cart();
         cart.setUser(user);
         Cart finalCart = cartService.createCart(cart);
         user.setCart(finalCart);
+
         Set<Role> roles = new HashSet<>();
-        roles.add(roleService.findRoleByName("ROLE_ADMIN"));
         roles.add(roleService.findRoleByName("ROLE_CUSTOMER"));
         user.setRoles(roles);
-        return userRepository.save(user);
-    }
-    public User getUser(String username) {
-        return userRepository.findByUsername(username);
+
+        User savedUser = userRepository.save(user);
+
+        LoginRequestDTO loginRequestDTO = new LoginRequestDTO();
+        loginRequestDTO.setUsername(savedUser.getUsername());
+        loginRequestDTO.setPassword(requestUser.getPassword());
+        return login(loginRequestDTO);
+
     }
 
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
-
-    public User deleteUser(String username) {
-        User user = userRepository.findByUsername(username);
-        userRepository.delete(user);
-        return user;
-    }
-
-    public String login(User user) {
+    public ResponseEntity<ApiResponse> login(LoginRequestDTO user) {
 
         Authentication authentication =
                 authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
         if(authentication.isAuthenticated()) {
-            return jwtService.generateToken(user.getUsername());
+            CustomUserDetails authUser = (CustomUserDetails) authentication.getPrincipal();
+            LoginResponseDTO res =  new LoginResponseDTO(getUser(authUser.getUsername()), jwtService.generateToken(user.getUsername()));
+            ApiResponse apiResponse = new ApiResponse(res,"Login done",(HttpStatus.OK).value());
+            return ResponseEntity.ok(apiResponse);
         }
-        return "fail";
+        ApiResponse apiResponse = new ApiResponse(null,"Username or password incorrect", (HttpStatus.UNAUTHORIZED).value());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(apiResponse);
     }
 
-    public User userById(long id) {
-        try {
-            return userRepository.findById(id);
-        }  catch (Exception e) {
-            return null;
-        }
+    public User getUser(String username) {
+        return userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
+    }
+
+    public ResponseEntity<List<User>> getAllUsers() {
+        List<User> users = userRepository.findAll();
+        return ResponseEntity.status(HttpStatus.OK).body(users);
+    }
+
+    /*public ResponseEntity<User> deleteUser(String username) {
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
+        userRepository.delete(user);
+        return new ResponseEntity<>(user, HttpStatus.OK);
+    }*/
+
+
+    public ResponseEntity<ApiResponse> userById(long id) {
+        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found with Id : " + id));
+        ApiResponse apiResponse = new ApiResponse(user, "Ok", (HttpStatus.OK).value());
+        return ResponseEntity.ok(apiResponse);
 
     }
 
-    public User authenticatedUser() {
+    public ResponseEntity<ApiResponse> authenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         CustomUserDetails user = (CustomUserDetails) authentication.getPrincipal();
 
-        User authUser = getUser(user.getUsername());
-
-
-        return authUser;
+        ApiResponse apiResponse = new ApiResponse(getUser(user.getUsername()), "Ok", (HttpStatus.OK).value());
+        return ResponseEntity.ok(apiResponse);
     }
 }

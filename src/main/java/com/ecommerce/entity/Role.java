@@ -15,5 +15,6 @@ public class Role {
     private String roleName;
 
     @ManyToMany(fetch = FetchType.EAGER)
+    @Column(table = "role_permission")
     private Set<Permission> permissions =  new HashSet<>();
 }

@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: Ecommerce
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/ecommerce
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    username: rabbit
+    password: rabbit_pass
+
+jwt:
+  secret: 51aecbebb34b643d4e96a7f9c2b72e23cedc5761b1f67ad1ae322179415da3f5
+
+server:
+  port: 8082

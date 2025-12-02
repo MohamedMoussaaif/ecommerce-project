@@ -1,7 +1,78 @@
 package com.ecommerce.service;
 
+import com.ecommerce.dto.orderDTO.RequestOrder;
+import com.ecommerce.dto.rabbit.OrderCreatedEvent;
+import com.ecommerce.entity.*;
+import com.ecommerce.exception.UserNotFoundException;
+import com.ecommerce.mapper.OrderMapper;
+import com.ecommerce.mapper.rabbit.OrderCreatedEventMapper;
+import com.ecommerce.rabbit.OrderProducer;
+import com.ecommerce.repository.CartRepository;
+import com.ecommerce.repository.OrderItemRepository;
+import com.ecommerce.repository.OrderRepository;
+import com.ecommerce.repository.UserRepository;
+import com.ecommerce.utility.ApiResponse;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
+@Transactional
+@RequiredArgsConstructor
 public class OrderService {
+
+    private final UserRepository userRepository;
+    private final CartRepository cartRepository;
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final OrderMapper orderMapper;
+    private final OrderProducer  orderProducer;
+    private final OrderCreatedEventMapper orderCreatedEventMapper;
+
+
+
+    public OrderItem cartItemToOrderItem(CartItem cartItem) {
+        OrderItem item = new  OrderItem();
+        item.setProduct(cartItem.getProduct());
+        item.setQuantity(cartItem.getQuantity());
+        item.setPriceAtPurchase(cartItem.getPriceAtPurchase());
+        orderItemRepository.save(item);
+        return item;
+    }
+
+
+    public ResponseEntity<ApiResponse> checkout(long userId, RequestOrder requestOrder) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found with Id : " + userId));
+        Cart cart = cartRepository.findByUser(user).orElseThrow(() -> new UserNotFoundException("Cart not found"));
+
+        Order order = orderMapper.toOrder(requestOrder);
+        order.setUser(cart.getUser());
+
+        List<OrderItem> items = new ArrayList<>();
+        double subTotal = 0;
+        for(CartItem item : cart.getItems()) {
+            OrderItem orderItem = cartItemToOrderItem(item);
+            subTotal = subTotal + orderItem.getPriceAtPurchase();
+            items.add(orderItem);
+        }
+        order.setItems(items);
+        order.setSubtotal(subTotal);
+        order.setTotalAmount(subTotal + order.getShippingCost());
+
+        orderRepository.save(order);
+
+        OrderCreatedEvent event = orderCreatedEventMapper.orderToCreatedEvent(order);
+        System.out.println(event.toString());
+
+        orderProducer.sendOrderMessage(event);
+
+        return new ResponseEntity<ApiResponse>(new ApiResponse(order,"Order added successfully", HttpStatus.OK.value()), HttpStatus.OK);
+
+    }
 }

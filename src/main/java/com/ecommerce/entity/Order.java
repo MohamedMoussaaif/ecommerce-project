@@ -1,6 +1,7 @@
 package com.ecommerce.entity;
 
 import com.ecommerce.enums.OrderStatus;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -18,18 +19,29 @@ public class Order {
     private Long id;
 
     private double totalAmount;
+    private double shippingCost = 5.99;
+    private double subtotal;
 
     //Shipping details
     private String shippingAddress;
     private String country;
 
-    private OrderStatus orderStatus;
+    @Enumerated(EnumType.STRING)
+    private OrderStatus orderStatus = OrderStatus.PENDING;
 
     private LocalDateTime orderDate = LocalDateTime.now();
-    private LocalDateTime deliveredDate;
+    private LocalDateTime deliveredDate = null;
+
+
 
     //Relations
 
     @OneToMany(cascade = CascadeType.ALL)
-    private List<OrderItem> orderItems;
+    @Column(table = "order_orderItems")
+    private List<OrderItem> items;
+
+    @ManyToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "user_id")
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private User user;
 }

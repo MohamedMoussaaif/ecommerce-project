@@ -19,7 +19,6 @@ public class Product {
 
     //Relations
 
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "category_id")
+    @ManyToOne
     private Category category;
 }

@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Entity
 @Data
-public class OrderItem {
+public class CartItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -14,7 +14,7 @@ public class OrderItem {
     @ManyToOne
     private Product product;
 
-    private int quantity;
+    private int quantity = 1;
     private double priceAtPurchase;
 
 }
