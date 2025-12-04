@@ -3,6 +3,7 @@ package com.ecommerce.service;
 import com.ecommerce.dto.userDTO.LoginRequestDTO;
 import com.ecommerce.dto.userDTO.LoginResponseDTO;
 import com.ecommerce.dto.userDTO.RequestUser;
+import com.ecommerce.dto.userDTO.UpdateUserDto;
 import com.ecommerce.entity.Cart;
 import com.ecommerce.entity.Role;
 import com.ecommerce.entity.User;
@@ -14,6 +15,7 @@ import com.ecommerce.repository.UserRepository;
 import com.ecommerce.service.sec.JWTService;
 import com.ecommerce.utility.ApiResponse;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
@@ -35,31 +37,15 @@ import java.util.Set;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
-
     private final AuthenticationManager authenticationManager;
     private final CartService cartService;
     private final JWTService jwtService;
     private final RoleService roleService;
     private final UserMapper userMapper;
-
-    public UserService(UserRepository userRepository,
-                       AuthenticationManager authenticationManager,
-                       CartService cartService,
-                       JWTService jwtService,
-                       RoleService roleService,
-                       UserMapper userMapper
-                       ) {
-        this.userRepository = userRepository;
-        this.authenticationManager = authenticationManager;
-        this.cartService = cartService;
-        this.jwtService = jwtService;
-        this.roleService = roleService;
-        this.userMapper = userMapper;
-
-    }
 
     private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
@@ -72,16 +58,18 @@ public class UserService {
             throw new ExistedUserException("Email already exists : " + requestUser.getEmail());
         }
         user.setPassword(encoder.encode(user.getPassword()));
-        Cart cart = new Cart();
-        cart.setUser(user);
-        Cart finalCart = cartService.createCart(cart);
-        user.setCart(finalCart);
 
         Set<Role> roles = new HashSet<>();
         roles.add(roleService.findRoleByName("ROLE_CUSTOMER"));
         user.setRoles(roles);
 
         User savedUser = userRepository.save(user);
+
+        Cart cart = new Cart();
+        cart.setUser(savedUser);
+        savedUser.setCart(cart);
+
+        userRepository.save(savedUser);
 
         LoginRequestDTO loginRequestDTO = new LoginRequestDTO();
         loginRequestDTO.setUsername(savedUser.getUsername());
@@ -113,11 +101,11 @@ public class UserService {
         return ResponseEntity.status(HttpStatus.OK).body(users);
     }
 
-    /*public ResponseEntity<User> deleteUser(String username) {
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
+    public ResponseEntity<ApiResponse> removeUser(long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found with username: " + userId));
         userRepository.delete(user);
-        return new ResponseEntity<>(user, HttpStatus.OK);
-    }*/
+        return new ResponseEntity<ApiResponse>(new ApiResponse(user, "User deleted successfully", HttpStatus.OK.value()), HttpStatus.OK);
+    }
 
 
     public ResponseEntity<ApiResponse> userById(long id) {
@@ -133,5 +121,12 @@ public class UserService {
 
         ApiResponse apiResponse = new ApiResponse(getUser(user.getUsername()), "Ok", (HttpStatus.OK).value());
         return ResponseEntity.ok(apiResponse);
+    }
+
+    public ResponseEntity<ApiResponse> updateUser(long userId, UpdateUserDto userData) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found with Id : " + userId));
+        userMapper.updateRequestToUser(userData, user);
+
+        return ResponseEntity.status(HttpStatus.OK).body(new ApiResponse(user, "Ok", (HttpStatus.OK).value()));
     }
 }

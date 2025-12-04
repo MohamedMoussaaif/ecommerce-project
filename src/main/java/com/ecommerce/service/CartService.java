@@ -32,29 +32,48 @@ public class CartService {
     private CartItemMapper cartItemMapper;
 
 
-    public Cart createCart(Cart cart) {
-        return cartRepository.save(cart);
+
+    private void recalcCartTotals(Cart cart) {
+        double subtotal = 0;
+
+        for (CartItem item : cart.getItems()) {
+            subtotal += item.getPriceAtPurchase();
+        }
+
+        cart.setSubtotal(subtotal);
+        cart.setTotalPrice(subtotal == 0 ? 0 : subtotal + cart.getShippingCost());
     }
 
     public ResponseEntity<ApiResponse> addItemToCart(long userId, RequestCartItem cartItem) {
         User user =  userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
         Cart cart = cartRepository.findByUser(user).orElseThrow(() -> new UserNotFoundException("Cart not found"));
+        Product product = productRepository.findById(cartItem.getProductId()).orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
         List<CartItem> items = cart.getItems();
 
-        CartItem targetCartItem = cartItemMapper.toCartItem(cartItem);
-        Product product = productRepository.findById(cartItem.getProductId()).orElseThrow(() -> new ProductNotFoundException("Product not found"));
-        targetCartItem.setProduct(product);
-        targetCartItem.setPriceAtPurchase(targetCartItem.getQuantity() * product.getProductPrice());
+        boolean productExisted = false;
+        CartItem existedItem = null;
 
-        cartItemService.addCartItem(targetCartItem);
+        for (CartItem item : items) {
+            if (item.getProduct().getId() == product.getId()) {
+                productExisted = true;
+                existedItem = item;
+            }
+        }
 
-        items.add(targetCartItem);
+        if (productExisted) {
+            return updateItem(userId, existedItem.getId(),existedItem.getQuantity() + 1);
+        }
 
-        cart.setItems(items);
-        double subtotal = cart.getSubtotal() + targetCartItem.getPriceAtPurchase();
-        cart.setSubtotal(subtotal);
-        cart.setTotalPrice(subtotal + cart.getShippingCost());
+        CartItem newCartItem = cartItemMapper.toCartItem(cartItem);
+        newCartItem.setProduct(product);
+        newCartItem.setPriceAtPurchase(newCartItem.getQuantity() * product.getProductPrice());
+        newCartItem.setCart(cart);
+
+        cart.getItems().add(newCartItem);
+
+        recalcCartTotals(cart);
+
         cartRepository.save(cart);
 
         return new ResponseEntity<ApiResponse>(new ApiResponse(cart, "Item added successfully", HttpStatus.CREATED.value()),  HttpStatus.OK);
@@ -65,19 +84,10 @@ public class CartService {
         Cart cart = cartRepository.findByUser(user).orElseThrow(() -> new UserNotFoundException("Cart not found"));
         CartItem cartItem =  cartItemRepository.findById(itemId).orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
-        List<CartItem> items = cart.getItems();
-        items.remove(cartItem);
-        cartItemRepository.deleteById(itemId);
-        cart.setItems(items);
+        cart.getItems().remove(cartItem);
 
-        if(cart.getItems().isEmpty()) {
-            cart.setSubtotal(0);
-            cart.setTotalPrice(0);
-        } else {
-            double subtotal = cart.getSubtotal() - cartItem.getPriceAtPurchase();
-            cart.setSubtotal(subtotal);
-            cart.setTotalPrice(subtotal + cart.getShippingCost());
-        }
+        recalcCartTotals(cart);
+        cartRepository.save(cart);
 
 
         return new ResponseEntity<ApiResponse>(new ApiResponse(null, "Item removed successfully", HttpStatus.OK.value()),   HttpStatus.OK);
@@ -87,16 +97,9 @@ public class CartService {
         User user =  userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
         Cart cart = cartRepository.findByUser(user).orElseThrow(() -> new UserNotFoundException("Cart not found"));
 
-        List<CartItem> items = cart.getItems();
-        for(CartItem cartItem : cart.getItems()) {
-            cartItemService.deleteCartItem(cartItem.getId());
-        }
-        cart.setItems(new ArrayList<>());
-        if(cart.getItems().isEmpty()) {
-            cart.setSubtotal(0);
-            cart.setTotalPrice(0);
-        }
+        cart.getItems().clear();
 
+        recalcCartTotals(cart);
         cartRepository.save(cart);
 
         return new ResponseEntity<ApiResponse>(new ApiResponse(cart, "Items removed successfully", HttpStatus.OK.value()),  HttpStatus.OK);
@@ -113,14 +116,14 @@ public class CartService {
         Cart cart  = cartRepository.findByUser(user).orElseThrow(() -> new UserNotFoundException("Cart not found"));
         CartItem item =  cartItemRepository.findById(itemId).orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
-        double subTotal = item.getProduct().getProductPrice() * quantity;
-        cartItemService.updateOrderItem(itemId, quantity);
-        cart.setSubtotal(subTotal);
-        if(subTotal == 0) {
-            cart.setTotalPrice(0);
+        if (quantity <= 0) {
+            cart.getItems().remove(item);
         } else {
-            cart.setTotalPrice(subTotal + cart.getShippingCost());
+            item.setQuantity(quantity);
+            item.setPriceAtPurchase(item.getProduct().getProductPrice() * quantity);
         }
+
+        recalcCartTotals(cart);
         cartRepository.save(cart);
 
         return new ResponseEntity<ApiResponse>(new ApiResponse(null, "Item updated successfully", HttpStatus.OK.value()),  HttpStatus.OK);

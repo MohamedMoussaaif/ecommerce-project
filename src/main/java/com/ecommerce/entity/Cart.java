@@ -24,12 +24,10 @@ public class Cart {
 
     //Relations
 
-    @OneToMany(cascade = CascadeType.ALL)
-    @Column(table = "cart_cartItems")
+    @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItem> items = new ArrayList<>();
 
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "user_id")
+    @OneToOne(mappedBy = "cart")
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private User user;
 

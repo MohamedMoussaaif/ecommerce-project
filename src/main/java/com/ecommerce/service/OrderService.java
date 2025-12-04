@@ -2,6 +2,7 @@ package com.ecommerce.service;
 
 import com.ecommerce.dto.orderDTO.RequestOrder;
 import com.ecommerce.dto.rabbit.OrderCreatedEvent;
+import com.ecommerce.dto.userDTO.UpdateUserDto;
 import com.ecommerce.entity.*;
 import com.ecommerce.exception.UserNotFoundException;
 import com.ecommerce.mapper.OrderMapper;
@@ -47,32 +48,56 @@ public class OrderService {
     }
 
 
+    @Transactional
     public ResponseEntity<ApiResponse> checkout(long userId, RequestOrder requestOrder) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found with Id : " + userId));
-        Cart cart = cartRepository.findByUser(user).orElseThrow(() -> new UserNotFoundException("Cart not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with Id : " + userId));
+
+        Cart cart = cartRepository.findByUser(user)
+                .orElseThrow(() -> new UserNotFoundException("Cart not found"));
+
+        if (cart.getItems().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse(null, "Cart is empty", HttpStatus.BAD_REQUEST.value()));
+        }
 
         Order order = orderMapper.toOrder(requestOrder);
-        order.setUser(cart.getUser());
+        order.setUser(user);
 
-        List<OrderItem> items = new ArrayList<>();
+        List<OrderItem> orderItems = new ArrayList<>();
         double subTotal = 0;
-        for(CartItem item : cart.getItems()) {
-            OrderItem orderItem = cartItemToOrderItem(item);
-            subTotal = subTotal + orderItem.getPriceAtPurchase();
-            items.add(orderItem);
+
+        for (CartItem cartItem : cart.getItems()) {
+            OrderItem orderItem = new OrderItem();
+            orderItem.setProduct(cartItem.getProduct());
+            orderItem.setQuantity(cartItem.getQuantity());
+            orderItem.setPriceAtPurchase(cartItem.getPriceAtPurchase());
+            orderItem.setOrder(order);
+
+            subTotal += cartItem.getPriceAtPurchase();
+            orderItems.add(orderItem);
         }
-        order.setItems(items);
+
+        order.setItems(orderItems);
         order.setSubtotal(subTotal);
         order.setTotalAmount(subTotal + order.getShippingCost());
 
         orderRepository.save(order);
 
-        OrderCreatedEvent event = orderCreatedEventMapper.orderToCreatedEvent(order);
-        System.out.println(event.toString());
+        cart.getItems().clear();
+        cartRepository.save(cart);
 
+        OrderCreatedEvent event = orderCreatedEventMapper.orderToCreatedEvent(order);
         orderProducer.sendOrderMessage(event);
 
-        return new ResponseEntity<ApiResponse>(new ApiResponse(order,"Order added successfully", HttpStatus.OK.value()), HttpStatus.OK);
+        return ResponseEntity.ok(new ApiResponse(order, "Order created successfully", 200));
+    }
 
+
+    public ResponseEntity<ApiResponse> getAllOrders() {
+
+        List<Order> orders = orderRepository.findAll();
+
+        return new ResponseEntity<ApiResponse>(new ApiResponse(orders,"Orders found", HttpStatus.OK.value()), HttpStatus.OK);
     }
 }

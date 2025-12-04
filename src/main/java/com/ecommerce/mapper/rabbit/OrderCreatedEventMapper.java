@@ -12,7 +12,7 @@ public class OrderCreatedEventMapper {
         orderCreatedEvent.setOrderId(order.getId());
         orderCreatedEvent.setOrderStatus(order.getOrderStatus());
         orderCreatedEvent.setOrderDate(order.getOrderDate());
-        orderCreatedEvent.setTotalAmount(order.getTotalAmount());
+        orderCreatedEvent.setTotalAmount(order.getTotalAmount());   
 
         return orderCreatedEvent;
     }

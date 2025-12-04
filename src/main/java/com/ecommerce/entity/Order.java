@@ -36,11 +36,10 @@ public class Order {
 
     //Relations
 
-    @OneToMany(cascade = CascadeType.ALL)
-    @Column(table = "order_orderItems")
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne
     @JoinColumn(name = "user_id")
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private User user;

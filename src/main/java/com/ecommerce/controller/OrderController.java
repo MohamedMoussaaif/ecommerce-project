@@ -20,4 +20,9 @@ public class OrderController {
     public ResponseEntity<ApiResponse> checkout(@PathVariable long userId, @RequestBody RequestOrder requestOrder) {
         return orderService.checkout(userId, requestOrder);
     }
+
+    @GetMapping("/orders")
+    public ResponseEntity<ApiResponse> finsAllOrders() {
+        return orderService.getAllOrders();
+    }
 }

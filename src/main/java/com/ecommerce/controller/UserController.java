@@ -2,7 +2,9 @@ package com.ecommerce.controller;
 
 import com.ecommerce.dto.userDTO.LoginRequestDTO;
 import com.ecommerce.dto.userDTO.RequestUser;
+import com.ecommerce.dto.userDTO.UpdateUserDto;
 import com.ecommerce.entity.User;
+import com.ecommerce.service.OrderService;
 import com.ecommerce.service.UserService;
 import com.ecommerce.utility.ApiResponse;
 import lombok.AllArgsConstructor;
@@ -20,6 +22,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final OrderService orderService;
 
     @GetMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
@@ -46,6 +49,18 @@ public class UserController {
     @GetMapping("/authenticatedUser")
     public ResponseEntity<ApiResponse> getAuthenticatedUser() {
         return userService.authenticatedUser();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/users/{userId}")
+    public ResponseEntity<ApiResponse> updateUser(@PathVariable long userId, @RequestBody UpdateUserDto userData) {
+        return userService.updateUser(userId, userData);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/users/{userId}")
+    public ResponseEntity<ApiResponse> deleteUser(@PathVariable long userId) {
+        return userService.removeUser(userId);
     }
 
 }
