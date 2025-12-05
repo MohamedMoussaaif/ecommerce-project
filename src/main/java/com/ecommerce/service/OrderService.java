@@ -1,9 +1,12 @@
 package com.ecommerce.service;
 
+import com.ecommerce.dto.orderDTO.OrderStatusRequest;
 import com.ecommerce.dto.orderDTO.RequestOrder;
 import com.ecommerce.dto.rabbit.OrderCreatedEvent;
 import com.ecommerce.dto.userDTO.UpdateUserDto;
 import com.ecommerce.entity.*;
+import com.ecommerce.enums.OrderStatus;
+import com.ecommerce.exception.OrderNotFoundException;
 import com.ecommerce.exception.UserNotFoundException;
 import com.ecommerce.mapper.OrderMapper;
 import com.ecommerce.mapper.rabbit.OrderCreatedEventMapper;
@@ -99,5 +102,30 @@ public class OrderService {
         List<Order> orders = orderRepository.findAll();
 
         return new ResponseEntity<ApiResponse>(new ApiResponse(orders,"Orders found", HttpStatus.OK.value()), HttpStatus.OK);
+    }
+
+    public ResponseEntity<ApiResponse> updateOrderStatus(long orderId, OrderStatusRequest orderStatusRequest) {
+
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new OrderNotFoundException("order not found with Id : " + orderId));
+
+        OrderStatus orderStatus = OrderStatus.valueOf(orderStatusRequest.getOrderStatus());
+        order.setOrderStatus(orderStatus);
+
+        orderRepository.save(order);
+
+        return new ResponseEntity<ApiResponse>(new ApiResponse(order,"Order updated successfully", HttpStatus.OK.value()), HttpStatus.OK);
+    }
+
+    public ResponseEntity<ApiResponse> removeOrder(long orderId) {
+
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new OrderNotFoundException("order not found with Id : " + orderId));
+        orderRepository.delete(order);
+
+        return new ResponseEntity<ApiResponse>(new ApiResponse(order,"Order removed successfully", HttpStatus.OK.value()), HttpStatus.OK);
+    }
+
+    public ResponseEntity<ApiResponse> orderById(long orderId) {
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new OrderNotFoundException("order not found with Id : " + orderId));
+        return new ResponseEntity<ApiResponse>(new ApiResponse(order,"Order found", HttpStatus.OK.value()), HttpStatus.OK);
     }
 }

@@ -88,14 +88,14 @@ public class ApplicationSeeder {
                     "Men's fashion"
             );
 
-            for(String c : categories){
+            /*for(String c : categories){
                 Category cat = categoryService.findByName(c);
                 if(cat == null){
                     Category category = new Category();
                     category.setName(c);
                     categoryService.addCategory(category);
                 }
-            }
+            }*/
         };
     }
 }

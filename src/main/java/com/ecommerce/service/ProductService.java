@@ -7,23 +7,24 @@ import com.ecommerce.exception.ProductNotFoundException;
 import com.ecommerce.mapper.ProductMapper;
 import com.ecommerce.repository.ProductRepository;
 import com.ecommerce.utility.ApiResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@Transactional
+@RequiredArgsConstructor
 public class ProductService {
 
-    @Autowired
-    private ProductRepository productRepository;
-    @Autowired
-    private CategoryService categoryService;
-    @Autowired
-    private ProductMapper productMapper;
+    private final ProductRepository productRepository;
+    private final CategoryService categoryService;
+    private final ProductMapper productMapper;
 
     public ResponseEntity<ApiResponse> productById(long id) {
         Product product = productRepository.findById(id).orElseThrow(() -> new ProductNotFoundException("Product not found with Id : " + id));
@@ -61,6 +62,19 @@ public class ProductService {
         Category cat = categoryService.findByName(category);
         List<Product> products = productRepository.findByCategory(cat).orElseThrow(() -> new ProductNotFoundException("Products not found with Category : " + category));
         return new ResponseEntity<ApiResponse>(new ApiResponse(products,"Products list not empty",HttpStatus.FOUND.value()),HttpStatus.OK);
+
+    }
+
+    public ResponseEntity<ApiResponse> updateProduct(long id, RequestProduct product) {
+        Product targetProduct = productRepository.findById(id).orElseThrow(() -> new ProductNotFoundException("Product not found with Id : " + id));
+        productMapper.updateRequestToProduct(product, targetProduct);
+
+        if (categoryService.findByName(product.getCategoryName()) != null) {
+            targetProduct.setCategory(categoryService.findByName(product.getCategoryName()));
+        }
+        productRepository.save(targetProduct);
+
+        return new ResponseEntity<>(new ApiResponse(productRepository.save(targetProduct),"Product updated",HttpStatus.OK.value()),HttpStatus.OK);
 
     }
 }

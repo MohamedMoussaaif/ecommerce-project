@@ -41,6 +41,5 @@ public class Order {
 
     @ManyToOne
     @JoinColumn(name = "user_id")
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private User user;
 }

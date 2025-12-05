@@ -51,6 +51,7 @@
         private Set<Role> roles =  new HashSet<>();
 
         @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
         private List<Order> orders = new ArrayList<>();
 
         @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)

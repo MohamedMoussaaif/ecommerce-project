@@ -40,11 +40,11 @@ public class ProductController {
         return productService.createProduct(product);
     }
 
-    /*@PutMapping("/products/{id}")
+    @PatchMapping("/products/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Product updateProduct(@PathVariable long id, @RequestBody Product product) {
-
-    }*/
+    public ResponseEntity<ApiResponse> updateProduct(@PathVariable long id, @RequestBody RequestProduct product) {
+        return productService.updateProduct(id,product);
+    }
 
     @DeleteMapping("/products/{id}")
     @PreAuthorize("hasRole('ADMIN')")
